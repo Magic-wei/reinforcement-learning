@@ -2,12 +2,28 @@ import io
 import numpy as np
 import sys
 from gym.envs.toy_text import discrete
+from enum import Enum, unique
 
-UP = 0
-RIGHT = 1
-DOWN = 2
-LEFT = 3
+@unique
+class Action(Enum):
+    UP = 0
+    RIGHT = 1
+    DOWN = 2
+    LEFT = 3
+    UPRIGHT = 4
+    DOWNRIGHT = 5
+    DOWNLEFT = 6
+    UPLEFT = 7
 
+UP = Action.UP.value
+RIGHT = Action.RIGHT.value
+DOWN = Action.DOWN.value
+LEFT = Action.LEFT.value
+UPRIGHT = Action.UPRIGHT.value
+DOWNRIGHT = Action.DOWNRIGHT.value
+DOWNLEFT = Action.DOWNLEFT.value
+UPLEFT = Action.UPLEFT.value
+    
 class GridworldEnv(discrete.DiscreteEnv):
     """
     Grid World environment from Sutton's Reinforcement Learning book chapter 4.
@@ -30,14 +46,20 @@ class GridworldEnv(discrete.DiscreteEnv):
 
     metadata = {'render.modes': ['human', 'ansi']}
 
-    def __init__(self, shape=[4,4]):
+    def __init__(self, shape=[4,4], actionmode=4):
+        """
+        Args:
+            shape: Grid size.
+            actionmode: this example only support 4 (default) or 8 actions.
+        """
+        
         if not isinstance(shape, (list, tuple)) or not len(shape) == 2:
             raise ValueError('shape argument must be a list/tuple of length 2')
 
         self.shape = shape
 
         nS = np.prod(shape) # np.prod 计算所有元素的乘积
-        nA = 4
+        nA = actionmode
 
         MAX_Y = shape[0]
         MAX_X = shape[1]
@@ -51,28 +73,40 @@ class GridworldEnv(discrete.DiscreteEnv):
             y, x = it.multi_index
 
             # P[s][a] = (prob, next_state, reward, is_done)
-            P[s] = {a : [] for a in range(nA)} # 
+            P[s] = {a : [] for a in range(nA)} # init
 
+            # terminal flag function
             is_done = lambda s: s == 0 or s == (nS - 1)
+            
+            # rewards
             reward = 0.0 if is_done(s) else -1.0
 
             # We're stuck in a terminal state
             if is_done(s):
-                P[s][UP] = [(1.0, s, reward, True)]
-                P[s][RIGHT] = [(1.0, s, reward, True)]
-                P[s][DOWN] = [(1.0, s, reward, True)]
-                P[s][LEFT] = [(1.0, s, reward, True)]
+#                 P[s][UP] = [(1.0, s, reward, True)]
+#                 P[s][RIGHT] = [(1.0, s, reward, True)]
+#                 P[s][DOWN] = [(1.0, s, reward, True)]
+#                 P[s][LEFT] = [(1.0, s, reward, True)]
+                for a in range(nA):
+                    P[s][a] = [(1.0, s, reward, True)]
             # Not a terminal state
             else:
-                ns_up = s if y == 0 else s - MAX_X
-                ns_right = s if x == (MAX_X - 1) else s + 1
-                ns_down = s if y == (MAX_Y - 1) else s + MAX_X
-                ns_left = s if x == 0 else s - 1
-                P[s][UP] = [(1.0, ns_up, reward, is_done(ns_up))]
-                P[s][RIGHT] = [(1.0, ns_right, reward, is_done(ns_right))]
-                P[s][DOWN] = [(1.0, ns_down, reward, is_done(ns_down))]
-                P[s][LEFT] = [(1.0, ns_left, reward, is_done(ns_left))]
-
+                next_state = list(np.zeros(8))
+                next_state[UP] = s if y == 0 else s - MAX_X
+                next_state[RIGHT] = s if x == (MAX_X - 1) else s + 1
+                next_state[DOWN] = s if y == (MAX_Y - 1) else s + MAX_X
+                next_state[LEFT] = s if x == 0 else s - 1
+                next_state[UPRIGHT] = s if y == 0 or x == (MAX_X - 1) else  s - MAX_X + 1
+                next_state[DOWNRIGHT] = s if y == (MAX_Y - 1) or x == (MAX_X - 1) else  s + MAX_X + 1
+                next_state[DOWNLEFT] = s if y == (MAX_Y - 1) or x == 0 else s + MAX_X - 1
+                next_state[UPLEFT] = s if y == 0 or x == 0 else s - MAX_X - 1
+                for a in range(nA):
+                    P[s][a] = [(1.0, next_state[a], reward, is_done(next_state[a]))]
+#                 P[s][UP] = [(1.0, ns_up, reward, is_done(ns_up))]
+#                 P[s][RIGHT] = [(1.0, ns_right, reward, is_done(ns_right))]
+#                 P[s][DOWN] = [(1.0, ns_down, reward, is_done(ns_down))]
+#                 P[s][LEFT] = [(1.0, ns_left, reward, is_done(ns_left))]
+    
             it.iternext()
 
         # Initial state distribution is uniform
@@ -82,7 +116,7 @@ class GridworldEnv(discrete.DiscreteEnv):
         # This should not be used in any model-free learning algorithm
         self.P = P
 
-        super(GridworldEnv, self).__init__(nS, nA, P, isd)
+        super(GridworldEnv, self).__init__(nS, nA, P, isd) # Python 2 version | In Python 3, can also be written as super().__init__(nS, nA, P, isd)
 
     def _render(self, mode='human', close=False):
         """ Renders the current gridworld layout
