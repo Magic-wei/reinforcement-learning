@@ -118,6 +118,9 @@ class GridworldEnv(discrete.DiscreteEnv):
 
         super(GridworldEnv, self).__init__(nS, nA, P, isd) # Python 2 version | In Python 3, can also be written as super().__init__(nS, nA, P, isd)
 
+    def render(self, mode='human', close=False):
+        self._render(mode, close)
+
     def _render(self, mode='human', close=False):
         """ Renders the current gridworld layout
 
